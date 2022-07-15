@@ -4,6 +4,7 @@ import { useMoralis } from "react-moralis"
 import { FaEthereum } from "react-icons/fa"
 import { useState } from "react"
 import { useNotification } from "web3uikit"
+import { ethers } from "ethers"
 
 export default function Body() {
     //Header.jsx passes up metamask info to MoralisProvider which then passes it down to all
@@ -12,6 +13,7 @@ export default function Body() {
     const chainId = parseInt(chainIdHex)
     const timeVaultAddress = chainId in contractAddresses ? contractAddresses[chainId][0] : null
     const [depositAmount, setDepositAmount] = useState(0)
+    const [timeLeft, setTimeLeft] = useState(0)
     const dispatch = useNotification()
 
     const {runContractFunction: deposit} = useWeb3Contract({
@@ -29,18 +31,40 @@ export default function Body() {
         params: {}
     })
 
+    const {runContractFunction: getTime} = useWeb3Contract({
+        abi: abi,
+        contracAddress: timeVaultAddress,
+        functionName: "getTime",
+        params: {}
+    })
+
     const handleDepositSuccess = async function (tx){
         await tx.wait(1)
-        handleNewNotification(tx)
+        handleNewDepositNotification(tx)
     }
 
-    const handleNewNotification = function () {
+    const handleWithdrawSuccess = async function (tx){
+        await tx.wait(1)
+        handleNewWithdrawNotification(tx)
+    }
+
+    const handleNewDepositNotification = function () {
         dispatch({
-            type: "info",
+            type: "success",
             message: "Ether Deposited!",
-            title: "Transaction Notification",
+            title: "Notification",
             position: "topR",
             icon: "check",
+        })
+    }
+
+    const handleNewWithdrawNotification = function () {
+        dispatch({
+            type: "success",
+            message: "Ether Withdrawn!",
+            title: "Notification",
+            position: "topR",
+            icon: "eth",
         })
     }
 
@@ -58,7 +82,18 @@ export default function Body() {
 
     const withdrawHandler = async (e) => {
         e.preventDefault()
-        await withdraw()
+        await withdraw({
+            onSuccess: handleWithdrawSuccess,
+            onError: (error) => console.log(error)
+        })
+    }
+
+    const getTimeHandler = async (e) => {
+        e.preventDefault()
+        const time = await getTime()
+        const formatTime = ethers.utils.formatEther(time)
+        console.log(formatTime)
+        setTimeLeft(formatTime)
     }
 
     return (
@@ -74,7 +109,9 @@ export default function Body() {
                 <button type="submit">Deposit</button>
             </div>
         </form>
-        <button >Unlock Ether</button>
+        <button onClick={withdrawHandler}>Unlock Ether</button>
+        <button onClick={getTimeHandler}>Time Left</button>
+        <h2>Time Left: {timeLeft}</h2>
       </div>
     )
 }
